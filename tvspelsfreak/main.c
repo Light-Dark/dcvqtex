@@ -44,7 +44,7 @@ void Init(){
 	vid_border_color(0,255,0);
 	pvr_init_defaults();
 	
-	//pvr_set_pal_format(PVR_PAL_ARGB8888);
+	pvr_set_pal_format(PVR_PAL_ARGB8888);
 	
 	snd_stream_init();
 	sndoggvorbis_init();
@@ -76,25 +76,6 @@ void Load_VQTexture(const char* fn, Texture* t){
 	fclose(fp);
 	
 	
-	if(t->fmt & PVR_TXRFMT_PAL4BPP != 0){
-		printf("Loading 4BPP palette\n");
-		char *temp = fn;
-		pal_header_t phdr;
-		strcat(temp,".pal");
-		fp = fopen(temp,"r");
-		fread(&phdr,sizeof(pal_header_t),1,fp);
-		Uint32* tempp;
-		tempp = malloc(phdr.numcolors*16*4);
-		fread((void*)tempp,16*4*phdr.numcolors,1,fp);
-		fclose(fp);
-		int i;
-		for(i = 0;i < 16;i++){
-			pvr_set_pal_entry(i,tempp[i]);
-		}
-		
-		free(tempp);
-		temp = NULL;
-	}
 }
 
 void DeleteTexture(Texture *tex)
