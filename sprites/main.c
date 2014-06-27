@@ -110,7 +110,7 @@ int main(int argc,char** argv){
 		
 		pvr_list_begin(PVR_LIST_TR_POLY);
 	
-		pvr_sprite_cxt_txr(&s_cxt,PVR_LIST_TR_POLY,spr.fmt,spr.w,spr.h,spr.txt,PVR_FILTER_NONE);
+		pvr_sprite_cxt_txr(&s_cxt,PVR_LIST_TR_POLY,spr.fmt,spr.w,spr.h,spr.txt,PVR_FILTER_BILINEAR);
 		pvr_sprite_compile(&s_hdr,&s_cxt);
 		s_hdr.argb = 0xffffffff;
 		pvr_prim(&s_hdr,sizeof(s_hdr)); // submit header

@@ -110,7 +110,7 @@ int main(int argc,char** argv){
 		
 		pvr_list_begin(PVR_LIST_TR_POLY);
 	
-		pvr_poly_cxt_txr(&p_cxt,PVR_LIST_TR_POLY,spr.fmt,spr.w,spr.h,spr.txt,PVR_FILTER_NONE);
+		pvr_poly_cxt_txr(&p_cxt,PVR_LIST_TR_POLY,spr.fmt,spr.w,spr.h,spr.txt,PVR_FILTER_BILINEAR);
 		pvr_poly_compile(&p_hdr,&p_cxt);
 		pvr_prim(&p_hdr,sizeof(p_hdr)); // submit header
 		
