@@ -20,9 +20,16 @@ typedef struct {
 	char	id[4];	// 'DTEX'
 	short	width;
 	short	height;
-	int		type;
+	Uint32		type;
 	int		size;
 } header_t;
+
+
+typedef struct {
+	char	id[4];	// 'DPAL'
+	int		numcolors;
+} pal_header_t;
+
 /*
 	My texture structure
 */
@@ -36,6 +43,8 @@ void Init(){
 	vid_set_mode(DM_640x480,PM_RGB565);
 	vid_border_color(0,255,0);
 	pvr_init_defaults();
+	
+	//pvr_set_pal_format(PVR_PAL_ARGB8888);
 	
 	snd_stream_init();
 	sndoggvorbis_init();
@@ -52,42 +61,7 @@ void Load_VQTexture(const char* fn, Texture* t){
 	t->w = hdr.width;
 	t->h = hdr.height;
 	
-	//Check for twiddling bit
-	if(hdr.type & 0x04000000 != 0){
-		t->fmt |= PVR_TXRFMT_TWIDDLED;
-	}
-	//Check for VQ bit
-	if(hdr.type & 0x40000000 != 0){
-		t->fmt |= PVR_TXRFMT_VQ_ENABLE;
-	}
-	/*0 = ARGB1555
-	1 = RGB565
-	2 = ARGB4444
-	3 = YUV422
-	4 = BUMPMAP
-	5 = PAL4BPP
-	6 = PAL8BPP
-	
-	Set the format, I'm currently too lazy to implement the palette stuff
-	*/
-	switch( (hdr.type & 0x38000000) >> 27){
-		case 0:
-			t->fmt |= PVR_TXRFMT_ARGB1555;
-			break;
-		case 1:
-			t->fmt |= PVR_TXRFMT_RGB565;
-			break;
-		case 2:
-			t->fmt |= PVR_TXRFMT_ARGB4444;
-			break;
-		case 3:
-			t->fmt |= PVR_TXRFMT_YUV422;
-			break;
-		case 4:
-			t->fmt |= PVR_TXRFMT_BUMP;
-			break;
-	}
-
+	t->fmt = hdr.type;
 	//Allocated texture memory
 	t->txt = pvr_mem_malloc(hdr.size);
 	//Temporary ram storage of texture
@@ -98,7 +72,29 @@ void Load_VQTexture(const char* fn, Texture* t){
 	pvr_txr_load(temp,t->txt,hdr.size);
 	//Free RAM
 	free(temp);
+	temp = NULL;
 	fclose(fp);
+	
+	
+	if(t->fmt & PVR_TXRFMT_PAL4BPP != 0){
+		printf("Loading 4BPP palette\n");
+		char *temp = fn;
+		pal_header_t phdr;
+		strcat(temp,".pal");
+		fp = fopen(temp,"r");
+		fread(&phdr,sizeof(pal_header_t),1,fp);
+		Uint32* tempp;
+		tempp = malloc(phdr.numcolors*16*4);
+		fread((void*)tempp,16*4*phdr.numcolors,1,fp);
+		fclose(fp);
+		int i;
+		for(i = 0;i < 16;i++){
+			pvr_set_pal_entry(i,tempp[i]);
+		}
+		
+		free(tempp);
+		temp = NULL;
+	}
 }
 
 void DeleteTexture(Texture *tex)
@@ -136,6 +132,7 @@ int main(int argc,char **argv){
 		pvr_list_begin(PVR_LIST_TR_POLY);
 	
 		pvr_poly_cxt_txr(&p_cxt,PVR_LIST_TR_POLY,spr.fmt,spr.w,spr.h,spr.txt,PVR_FILTER_BILINEAR);
+
 		pvr_poly_compile(&p_hdr,&p_cxt);
 		pvr_prim(&p_hdr,sizeof(p_hdr)); // submit header
 		
