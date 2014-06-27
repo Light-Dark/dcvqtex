@@ -2,7 +2,7 @@
 ##	SORRY FOR THE MESS I SUCK AT MAKEFILES!
 ##	-Liam "Dragmire" Ewasko
 
-all: rm-elf Game/main.elf Game/1ST_READ.bin 
+all: vq rm-elf Game/main.elf Game/1ST_READ.bin 
 
 include $(KOS_BASE)/Makefile.rules
 
@@ -19,6 +19,8 @@ KOS_LOCAL_CFLAGS = -I$(KOS_BASE)/addons/zlib \
 clean:
 	-rm -f Game/main.elf $(OBJS)
 	-rm -f romdisk.*
+	-rm -f romdisk/*.raw
+	-rm -f romdisk/*.pal
 
 
 dist:
@@ -42,14 +44,15 @@ Game/main.elf: $(OBJS)  romdisk.o
 
 vq: billy billy2
 billy: 
-	$(texconv) -i billy.jpg -o billy.raw  -f PAL4BPP -c -v -p billypreview.png
+	$(texconv) -i billy.jpg -o billy.raw  -f PAL4BPP -c -v 
 	mv billy.raw romdisk
 	mv billy.raw.pal romdisk
 	
 billy2:
-	$(texconv) -i billy.jpg -o billy2.raw -f PAL8BPP -c -v -p billypreview2.png
+	$(texconv) -i billy.jpg -o billy2.raw -f PAL8BPP -c -v 
 	mv billy2.raw romdisk
 	mv billy2.raw.pal romdisk
+
 	
 romdisk.img:
 	$(KOS_GENROMFS) -f $@ -d romdisk -v
