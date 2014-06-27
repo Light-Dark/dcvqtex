@@ -1,7 +1,7 @@
 ##
 ##	SORRY FOR THE MESS I SUCK AT MAKEFILES!
 ##	-Liam "Dragmire" Ewasko
-all: rm-elf Game/main.elf Game/1ST_READ.bin 
+all: vq rm-elf Game/main.elf Game/1ST_READ.bin 
 
 include $(KOS_BASE)/Makefile.rules
 
