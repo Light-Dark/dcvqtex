@@ -1,6 +1,6 @@
 /*
 	PVR VQ TEXTURE EXAMPLE USING Tvspelsfreak's texconv tool
-	- Uses textured Triangle strip and the Texconv tool by Tvspelsfreak
+	- Uses textured Triangle strip
 	
 	By: Liam "Dragmire" Ewasko
 	2014
@@ -12,7 +12,14 @@
 #include <kos.h>
 typedef unsigned int Uint32;
 typedef unsigned char Uint8, uint8;
-
+/*
+	First Half of the 1024 will go to 32 4-bit palettes
+*/
+static Uint32 Pindex4 = 0;
+/*
+	Second half will go to 2 8-bit palettes
+*/
+static Uint32 Pindex8 = 0;
 /*
 	Tvspelsfreak's texture file header
 */
@@ -37,6 +44,7 @@ typedef struct {
 	uint32 w,h;
 	uint32 fmt;
 	pvr_ptr_t txt;
+	Uint32 palette;
 }Texture;
 
 void Init(){
@@ -76,6 +84,56 @@ void Load_VQTexture(const char* fn, Texture* t){
 	fclose(fp);
 	
 	
+	if(t->fmt & PVR_TXRFMT_PAL4BPP){
+		char pf[64];
+		strcpy(pf,fn);
+		strcat(pf,".pal");
+		fp = fopen(pf,"r");
+		pal_header_t phdr;
+		fread(&phdr,sizeof(pal_header_t),1,fp);
+		
+		void *palette = malloc(phdr.numcolors*4);
+		
+		//fread(palette,sizeof(phdr.numcolors*4),1,fp);	//read in data
+		Uint32 i;
+		Uint32* packed = (Uint32*)palette;
+		fread(packed,phdr.numcolors*4,1,fp);		
+		for(i = Pindex4*16; i < (Pindex4*16) + phdr.numcolors*4;i++){
+			pvr_set_pal_entry(i,packed[i]);
+		}
+		Pindex4++;
+		
+		if(Pindex4 == 32){
+			Pindex4 = 0; // overwrite
+		}
+
+		packed = NULL;
+		free(palette);
+		fclose(fp);
+	} else if(t->fmt & PVR_TXRFMT_PAL8BPP){
+		char pf[64];
+		strcpy(pf,fn);
+		strcat(pf,".pal");
+		fp = fopen(pf,"r");
+		pal_header_t phdr;
+		fread(&phdr,sizeof(pal_header_t),1,fp);
+		void * palette = malloc(phdr.numcolors*4);
+		Uint32 i;
+		Uint32* packed = (Uint32*)palette;
+		fread(packed,phdr.numcolors*4,1,fp);
+		for(i = (512 + Pindex8*256); i < (Pindex8*256 + 512) + phdr.numcolors*4;i++){
+			pvr_set_pal_entry(i,packed[i]);
+		}
+		Pindex8++;
+		if(Pindex8 == 2){
+			Pindex8 = 0;
+		}
+		
+		packed = NULL;
+		free(palette);
+		fclose(fp);
+	}
+	
 }
 
 void DeleteTexture(Texture *tex)
@@ -91,12 +149,15 @@ KOS_INIT_ROMDISK(romdisk);
 int main(int argc,char **argv){
 	pvr_vertex_t v;
 	Texture spr;
+	Texture spr2;
 	pvr_poly_cxt_t p_cxt;
 	pvr_poly_hdr_t p_hdr;
 	
 	Init();
 	
 	Load_VQTexture("/rd/billy.raw",&spr);
+	
+	Load_VQTexture("/rd/billy2.raw",&spr2);
 	
 	sndoggvorbis_start("/rd/billy.ogg",-1);
 	int q = 0;
@@ -146,6 +207,44 @@ int main(int argc,char **argv){
 		v.v = 1.0;
 		v.flags = PVR_CMD_VERTEX_EOL;
 		pvr_prim(&v,sizeof(v));
+		
+		
+		pvr_poly_cxt_txr(&p_cxt,PVR_LIST_TR_POLY,spr2.fmt,spr2.w,spr2.h,spr2.txt,PVR_FILTER_BILINEAR);
+
+		pvr_poly_compile(&p_hdr,&p_cxt);
+		pvr_prim(&p_hdr,sizeof(p_hdr)); // submit header
+		
+		v.x = 0.0;
+		v.y = 480/2.0;
+		v.z = 1.0;
+		v.u = 0.0;
+		v.v = 0.0;
+		v.argb = 0xffffffff;
+		v.oargb = 0;
+		v.flags = PVR_CMD_VERTEX;
+		pvr_prim(&v,sizeof(v));
+		
+		
+		v.x = 640/2.0;
+		v.y = 480/2.0;
+		v.u = 1.0;
+		v.v = 0.0;
+		pvr_prim(&v,sizeof(v));
+		
+		v.x = 0.0;
+		v.y = 480.0;
+		v.u = 0.0;
+		v.v = 1.0;
+		pvr_prim(&v,sizeof(v));
+		
+		v.x = 640/2.0;
+		v.y = 480.0;
+		v.u = 1.0;
+		v.v = 1.0;
+		v.flags = PVR_CMD_VERTEX_EOL;
+		pvr_prim(&v,sizeof(v));
+		
+		
 		pvr_list_finish();
 		pvr_scene_finish();
 		vid_border_color(0,0,255);

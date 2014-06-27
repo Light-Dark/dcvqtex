@@ -2,7 +2,7 @@
 ##	SORRY FOR THE MESS I SUCK AT MAKEFILES!
 ##	-Liam "Dragmire" Ewasko
 
-all: vq rm-elf Game/main.elf Game/1ST_READ.bin 
+all: rm-elf Game/main.elf Game/1ST_READ.bin 
 
 include $(KOS_BASE)/Makefile.rules
 
@@ -40,10 +40,16 @@ Game/1ST_READ.bin:
 Game/main.elf: $(OBJS)  romdisk.o
 	$(KOS_CC)  $(KOS_CFLAGS) -O2 $(KOS_LDFLAGS) -o $@ $(KOS_START) $^  -lkosutils  -loggvorbisplay -lpng -lz -lk++ -lstdc++  -lm   $(KOS_LIBS)
 
-vq: Club 
-Club: 
-	$(texconv) -i billy.jpg -o billy.raw  -f ARGB4444 -c -v -p billypreview.png
+vq: billy billy2
+billy: 
+	$(texconv) -i billy.jpg -o billy.raw  -f PAL4BPP -c -v -p billypreview.png
 	mv billy.raw romdisk
+	mv billy.raw.pal romdisk
+	
+billy2:
+	$(texconv) -i billy.jpg -o billy2.raw -f PAL8BPP -c -v -p billypreview2.png
+	mv billy2.raw romdisk
+	mv billy2.raw.pal romdisk
 	
 romdisk.img:
 	$(KOS_GENROMFS) -f $@ -d romdisk -v
