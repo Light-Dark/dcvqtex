@@ -7,6 +7,9 @@
 	
 	Credit to Tvspelsfreak for texconv tool and texture file format
 */
+#define TXR_NONPALETTED 0 
+#define TXR_PALETTED 1
+
 
 
 #include <kos.h>
@@ -44,7 +47,7 @@ typedef struct {
 	uint32 w,h;
 	uint32 fmt;
 	pvr_ptr_t txt;
-	Uint32 palette;
+	Uint8 palette;
 }Texture;
 
 void Init(){
@@ -83,58 +86,75 @@ void Load_VQTexture(const char* fn, Texture* t){
 	temp = NULL;
 	fclose(fp);
 	
-	
-	if(t->fmt & PVR_TXRFMT_PAL4BPP){
-		char pf[64];
-		strcpy(pf,fn);
-		strcat(pf,".pal");
-		fp = fopen(pf,"r");
-		pal_header_t phdr;
-		fread(&phdr,sizeof(pal_header_t),1,fp);
+	/*
+		Palette loading and management
+	*/
+	if( ((t->fmt >> 27) & 7) > 4 ) {
+		if(t->fmt & PVR_TXRFMT_PAL4BPP){
+			// Append palette suffix to filepath
+			char pf[64];
+			strcpy(pf,fn);
+			strcat(pf,".pal");
+			fp = fopen(pf,"r");
+			pal_header_t phdr;
+			//read in the 8-byte header
+			fread(&phdr,sizeof(pal_header_t),1,fp);
+			//setup buffer
+			void *palette = malloc(phdr.numcolors*4);
+			Uint32 i;
+			//Make entries readable to PVR
+			Uint32* packed = (Uint32*)palette;
+			//Load entries in to buffer
+			fread(packed,phdr.numcolors*4,1,fp);
+			//Load palette into correct location
+			for(i = Pindex4*16; i < (Pindex4*16) + phdr.numcolors*4;i++){
+				pvr_set_pal_entry(i,packed[i]);
+			}
+			//Set palette #
+			t->palette = Pindex4;
 		
-		void *palette = malloc(phdr.numcolors*4);
+			t->fmt |=  PVR_TXRFMT_4BPP_PAL(Pindex4);
 		
-		//fread(palette,sizeof(phdr.numcolors*4),1,fp);	//read in data
-		Uint32 i;
-		Uint32* packed = (Uint32*)palette;
-		fread(packed,phdr.numcolors*4,1,fp);		
-		for(i = Pindex4*16; i < (Pindex4*16) + phdr.numcolors*4;i++){
-			pvr_set_pal_entry(i,packed[i]);
-		}
-		Pindex4++;
+		//Increase palettte index to prevent overwrite
+			Pindex4++;
 		
-		if(Pindex4 == 32){
-			Pindex4 = 0; // overwrite
-		}
+			if(Pindex4 == 32){
+				Pindex4 = 0; // overwrite
+			}
 
-		packed = NULL;
-		free(palette);
-		fclose(fp);
-	} else if(t->fmt & PVR_TXRFMT_PAL8BPP){
-		char pf[64];
-		strcpy(pf,fn);
-		strcat(pf,".pal");
-		fp = fopen(pf,"r");
-		pal_header_t phdr;
-		fread(&phdr,sizeof(pal_header_t),1,fp);
-		void * palette = malloc(phdr.numcolors*4);
-		Uint32 i;
-		Uint32* packed = (Uint32*)palette;
-		fread(packed,phdr.numcolors*4,1,fp);
-		for(i = (512 + Pindex8*256); i < (Pindex8*256 + 512) + phdr.numcolors*4;i++){
-			pvr_set_pal_entry(i,packed[i]);
-		}
-		Pindex8++;
-		if(Pindex8 == 2){
-			Pindex8 = 0;
-		}
+			packed = NULL;
+			free(palette);
+			fclose(fp);
+		} else if(t->fmt & PVR_TXRFMT_PAL8BPP){
+			char pf[64];
+			strcpy(pf,fn);
+			strcat(pf,".pal");
+			fp = fopen(pf,"r");
+			pal_header_t phdr;
+			fread(&phdr,sizeof(pal_header_t),1,fp);
+			void * palette = malloc(phdr.numcolors*4);
+			Uint32 i;
+			Uint32* packed = (Uint32*)palette;
+			fread(packed,phdr.numcolors*4,1,fp);
+			for(i = (512 + Pindex8*256); i < (Pindex8*256 + 512) + phdr.numcolors*4;i++){
+				pvr_set_pal_entry(i,packed[i]);
+			}
 		
-		packed = NULL;
-		free(palette);
-		fclose(fp);
+			t->palette = Pindex8 | 0x80;
+			t->fmt |=  PVR_TXRFMT_8BPP_PAL(Pindex8+2);
+			Pindex8++;
+			if(Pindex8 == 2){
+				Pindex8 = 0;
+			}
+		
+			packed = NULL;
+			free(palette);
+			fclose(fp);
+		}
 	}
 	
 }
+
 
 void DeleteTexture(Texture *tex)
 {
@@ -156,7 +176,6 @@ int main(int argc,char **argv){
 	Init();
 	
 	Load_VQTexture("/rd/billy.raw",&spr);
-	
 	Load_VQTexture("/rd/billy2.raw",&spr2);
 	
 	sndoggvorbis_start("/rd/billy.ogg",-1);
@@ -173,7 +192,7 @@ int main(int argc,char **argv){
 		
 		pvr_list_begin(PVR_LIST_TR_POLY);
 	
-		pvr_poly_cxt_txr(&p_cxt,PVR_LIST_TR_POLY,spr.fmt,spr.w,spr.h,spr.txt,PVR_FILTER_BILINEAR);
+		pvr_poly_cxt_txr(&p_cxt,PVR_LIST_TR_POLY,spr.fmt,spr.w,spr.h,spr.txt,PVR_FILTER_NONE);
 
 		pvr_poly_compile(&p_hdr,&p_cxt);
 		pvr_prim(&p_hdr,sizeof(p_hdr)); // submit header
@@ -209,7 +228,7 @@ int main(int argc,char **argv){
 		pvr_prim(&v,sizeof(v));
 		
 		
-		pvr_poly_cxt_txr(&p_cxt,PVR_LIST_TR_POLY,spr2.fmt,spr2.w,spr2.h,spr2.txt,PVR_FILTER_BILINEAR);
+		pvr_poly_cxt_txr(&p_cxt,PVR_LIST_TR_POLY,spr2.fmt,spr2.w,spr2.h,spr2.txt,PVR_FILTER_NONE);
 
 		pvr_poly_compile(&p_hdr,&p_cxt);
 		pvr_prim(&p_hdr,sizeof(p_hdr)); // submit header
@@ -260,7 +279,7 @@ int main(int argc,char **argv){
 	}
 	
 	DeleteTexture(&spr);
-	
+	DeleteTexture(&spr2);
 	sndoggvorbis_stop();
 	pvr_shutdown();
 	sndoggvorbis_shutdown();
