@@ -2,8 +2,7 @@
 	PVR VQ TEXTURE EXAMPLE USING Tvspelsfreak's texconv tool
 	- Uses textured Triangle strip
 	
-	By: Liam "Dragmire" Ewasko
-	2014
+	By: Liam
 	
 	Credit to Tvspelsfreak for texconv tool and texture file format
 */
